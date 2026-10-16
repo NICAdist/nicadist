@@ -1,0 +1,147 @@
+= NICADist
+== Init
+[source,bash]
+----
+mdkir $HOME/nica
+cd $HOME/nica
+git clone https://github.com/NICAdist/nicadist.git nicadist
+----
+
+One time create toolbox
+[source,bash]
+----
+toolbox create -c a9-nica-dev -i registry.gitlab.com/ndmspc/user/a9:alibuild-dev
+----
+
+== Usage
+Every time one needs to enter toolbox
+[source,bash]
+----
+toolbox enter a9-nica-dev
+cd $HOME/nica
+----
+
+and run build
+[source,bash]
+----
+aliBuild build -c nicadist --no-system --defaults global packageName
+----
+
+== Example recipe contents
+
+Let's have file mypackage.sh containing recipe for MyPackage.
+
+[source,bash]
+----
+package: MyPackage
+version: v1.2.3
+tag: 1.2.3
+source: https://github.com/mypackage.git
+requires:
+  - bzip2
+build_requires:
+  - autotools
+  - CMake
+  - ninja
+---
+#!/bin/bash -e
+export CLICOLOR_FORCE=1 # force color output
+export CPPFLAGS="${CPPFLAGS} -fdiagnostics-color=always"
+export NINJA_STATUS="[%p] " # nicer output of ninja (CMake-based builds)
+
+rsync -a --exclude='**/.git' --delete --delete-excluded $SOURCEDIR/ ./
+
+# Configure build type
+autoreconf -ivf
+./configure --enable-unicode-properties \
+            --prefix=$INSTALLROOT
+make ${JOBS+-j $JOBS}
+make install
+
+# CMake build type
+cmake "$SOURCEDIR"                                              \
+      -DCMAKE_INSTALL_PREFIX="$INSTALLROOT"                     \
+      ${CMAKE_BUILD_TYPE:+-DCMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE} \
+      ${CXXFLAGS:+-DCMAKE_CXX_FLAGS="$CXXFLAGS"}                \
+      ${CXXSTD:+-DCMAKE_CXX_STANDARD=$CXXSTD}                   \
+      -DCMAKE_COLOR_DIAGNOSTICS=ON                              \
+      -G Ninja                                                  \
+      -DCMAKE_INSTALL_LIBDIR=lib                                \
+      -DCMAKE_POLICY_VERSION_MINIMUM=3.5                        \
+      -DCMAKE_POLICY_DEFAULT_CMP0144=NEW
+
+cmake --build . -- ${JOBS+-j $JOBS} install
+
+# Create modulefile
+MODULEDIR="$INSTALLROOT/etc/modulefiles"
+MODULEFILE="$MODULEDIR/$PKGNAME"
+mkdir -p "$MODULEDIR"
+
+# --bin          will add $INSTALLROOT/bin to PATH
+# --lib          will add $INSTALLROOT/lib to LD_LIBRARY_PATH
+# --lib64        will add $INSTALLROOT/lib64 to LD_LIBRARY_PATH
+# --path         will fill $PKG_PATH where programs are placed (/path/sw/architecture)
+# --project=NAME will put 'NAME' before Modulefile in description
+# --root         will fill $PKG_ROOT even if no bin or lib is present (header only recipes)
+generate-module --project=NICA --bin --lib --lib64 --path --root > $MODULEFILE
+
+# Add additional paths to the modulefile
+PYVER="$(basename $(find $INSTALLROOT/lib -type d -name 'python*'))"
+
+cat >> "$MODULEFILE" << EoF
+# Path to PackageConfig.cmake file
+setenv Package_DIR \$PKG_ROOT/lib/cmake/Package
+# path to pc files
+prepend-path PKG_CONFIG_PATH \$PKG_ROOT/lib/pkgconfig
+# make CERN ROOT see header files
+prepend-path ROOT_INCLUDE_PATH \$PKG_ROOT/include
+# library path
+prepend-path LD_LIBRARY_PATH \$PKG_ROOT/lib64
+# .ac files
+prepend-path ACLOCAL_PATH \$PKG_ROOT/share/aclocal
+# xdg file contain command completion (directory bash-completion)
+prepend-path XDG_DATA_DIRS \$PKG_ROOT/share/
+# path to man files
+prepend-path MANPATH \$PKG_ROOT/share/man
+# Add if Python bindigs were also created (including $PYVER above)
+prepend-path PYTHONPATH \$PKG_ROOT/lib/$PYVER/site-packages
+EoF
+
+# Manualy create .pc file so that PKGCONFIG can be used to find it
+mkdir -p "$INSTALLROOT/lib/pkgconfig"
+cat > "$INSTALLROOT/lib/pkgconfig/libbz2.pc" << EoF
+prefix=$INSTALLROOT
+exec_prefix=\${prefix}
+libdir=$INSTALLROOT/lib
+toolexeclibdir=\${libdir}
+includedir=\${prefix}/include
+
+Name: bzip2
+Description: bzip2 data compression library
+Version: 1.0.8
+Libs: -L\${toolexeclibdir} -lbz2
+Cflags: -I\${includedir}
+EoF
+
+# Pack package to deb/rpm if set in defaults-nica.sh, create .lmod module file
+nicadist-postbuild-hook
+----
+
+== Common problems
+
+Incorrect version of aliBuild (`aliBuild --debug` returns error connected to missing
+`ALIBUILD_CONFIG_DIR` and insufficient version of aliBuild - less than v1.17.19).
+To see if alibuild was installed via pip and what is its version run
+`pip show alibuild`. There are two ways to fix the problem, either create environment variable pointing to nicadist directory or update aliBuild. Select one of the following two solutions:
+[source,bash]
+----
+export ALIBUILD_CONFIG_DIR=/path/to/git/nicadist
+pip install --upgrade alibuild
+----
+
+Missing perl time module when building OpenSSL
+[source,bash]
+----
+sudo dnf install perl-Time-Piece
+----
+

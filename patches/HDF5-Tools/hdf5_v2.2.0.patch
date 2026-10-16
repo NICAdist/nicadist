@@ -1,0 +1,57 @@
+diff --git a/CMakeInstallation.cmake b/CMakeInstallation.cmake
+index 4f424ca39ce..31fa3e23d96 100644
+--- a/CMakeInstallation.cmake
++++ b/CMakeInstallation.cmake
+@@ -194,6 +194,12 @@ if (H5_WORDS_BIGENDIAN)
+ else ()
+   set (BYTESEX little-endian)
+ endif ()
++
++string(REPLACE ";" " " LINK_LIBS_SETTINGS_SPACES "${LINK_LIBS_SETTINGS}")
++string(REPLACE ";" " " HDF5_CMAKE_C_FLAGS_SPACES "${HDF5_CMAKE_C_FLAGS}")
++string(REPLACE ";" " " HDF5_CMAKE_Fortran_FLAGS_SPACES "${HDF5_CMAKE_Fortran_FLAGS}")
++string(REPLACE ";" " " HDF5_CMAKE_CXX_FLAGS_SPACES "${HDF5_CMAKE_CXX_FLAGS}")
++
+ configure_file (
+     ${HDF5_SOURCE_DIR}/src/libhdf5.settings.in
+     ${HDF5_SRC_BINARY_DIR}/libhdf5.settings ESCAPE_QUOTES @ONLY
+diff --git a/src/libhdf5.settings.in b/src/libhdf5.settings.in
+index e112119328d..9ce6f8c9e3a 100644
+--- a/src/libhdf5.settings.in
++++ b/src/libhdf5.settings.in
+@@ -26,7 +26,7 @@ Linking Options:
+                         LDFLAGS: @CMAKE_SHARED_LINKER_FLAGS@
+                      H5_LDFLAGS: @H5_LDFLAGS@
+                      AM_LDFLAGS: @AM_LDFLAGS@
+-                Extra libraries: @LINK_LIBS_SETTINGS@
++                Extra libraries: @LINK_LIBS_SETTINGS_SPACES@
+                        Archiver: @CMAKE_AR@
+                        AR_FLAGS:
+                          Ranlib: @CMAKE_RANLIB@
+@@ -39,7 +39,7 @@ Languages:
+                     H5_CPPFLAGS: @H5_CPPFLAGS@
+                     AM_CPPFLAGS: @AM_CPPFLAGS@
+                          CFLAGS: @CMAKE_C_FLAGS@ @HDF5_BUILD_MODE_C_FLAGS@
+-                      H5_CFLAGS: @HDF5_CMAKE_C_FLAGS@
++                      H5_CFLAGS: @HDF5_CMAKE_C_FLAGS_SPACES@
+                       AM_CFLAGS: @AM_CFLAGS@
+                Shared C Library: @H5_ENABLE_SHARED_LIB@
+                Static C Library: @H5_ENABLE_STATIC_LIB@
+@@ -47,7 +47,7 @@ Languages:
+                         Fortran: @HDF5_BUILD_FORTRAN@
+                Fortran Compiler: @CMAKE_Fortran_COMPILER@ @CMAKE_Fortran_COMPILER_VERSION@
+                   Fortran Flags: @CMAKE_Fortran_FLAGS@ @HDF5_BUILD_MODE_Fortran_FLAGS@
+-               H5 Fortran Flags: @HDF5_CMAKE_Fortran_FLAGS@
++               H5 Fortran Flags: @HDF5_CMAKE_Fortran_FLAGS_SPACES@
+                AM Fortran Flags: @AM_FCFLAGS@
+          Shared Fortran Library: @H5_ENABLE_SHARED_LIB@
+          Static Fortran Library: @H5_ENABLE_STATIC_LIB@
+@@ -56,7 +56,7 @@ Languages:
+                             C++: @HDF5_BUILD_CPP_LIB@
+                    C++ Compiler: @CMAKE_CXX_COMPILER@ @CMAKE_CXX_COMPILER_VERSION@
+                       C++ Flags: @CMAKE_CXX_FLAGS@ @HDF5_BUILD_MODE_CXX_FLAGS@
+-                   H5 C++ Flags: @HDF5_CMAKE_CXX_FLAGS@
++                   H5 C++ Flags: @HDF5_CMAKE_CXX_FLAGS_SPACES@
+                    AM C++ Flags: @AM_CXXFLAGS@
+              Shared C++ Library: @H5_ENABLE_SHARED_LIB@
+              Static C++ Library: @H5_ENABLE_STATIC_LIB@

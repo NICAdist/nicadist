@@ -1,0 +1,112 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index afaefd9..5fd199c 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.14)
++cmake_minimum_required(VERSION 3.28)
+ project(PFSimple CXX)
+ set(PROJECT_VERSION 1.0)
+ 
+diff --git a/at_interface/CMakeLists.txt b/at_interface/CMakeLists.txt
+index 3b01bf7..5587cd8 100644
+--- a/at_interface/CMakeLists.txt
++++ b/at_interface/CMakeLists.txt
+@@ -16,7 +16,12 @@ endif()
+ 
+ add_library(KFMan SHARED ${SOURCES} G__KFMan.cxx)
+ 
+-ROOT_GENERATE_DICTIONARY(G__KFMan ${HEADERS} LINKDEF KFManLinkDef.h OPTIONS "-DDO_TPCCATRACKER_EFF_PERFORMANCE" "-DNonhomogeneousField" "-DCBM" "-DUSE_TIMERS")
++ROOT_GENERATE_DICTIONARY(
++  G__KFMan
++  ${HEADERS}
++  LINKDEF KFManLinkDef.h
++  OPTIONS "-DDO_TPCCATRACKER_EFF_PERFORMANCE" "-DNonhomogeneousField" "-DCBM" "-DUSE_TIMERS"
++)
+ 
+ target_link_libraries(KFMan ${ROOT_LIBRARIES} AnalysisTreeBase AnalysisTreeInfra KFParticleInterface KFParticleSimple KFParticle)
+ add_dependencies(KFMan KFParticleSimple)
+diff --git a/at_interface/KFManLinkDef.h b/at_interface/KFManLinkDef.h
+index 3fad332..de3bc5b 100644
+--- a/at_interface/KFManLinkDef.h
++++ b/at_interface/KFManLinkDef.h
+@@ -1,4 +1,4 @@
+-#ifdef __MAKECINT__
++#ifdef __ROOTCLING__
+ 
+ #pragma link off all globals;
+ #pragma link off all classes;
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 390a8fb..b3d2db5 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -14,7 +14,13 @@ link_directories(${PROJECT_LINK_DIRECTORIES} ${Vc_LIB_DIR})
+ 
+ add_library(KFParticleSimple SHARED ${SOURCES} G__KFParticleSimple.cxx)
+ 
+-ROOT_GENERATE_DICTIONARY(G__KFParticleSimple ${HEADERS} LINKDEF KFSimpleLinkDef.h OPTIONS "-DDO_TPCCATRACKER_EFF_PERFORMANCE" "-DNonhomogeneousField" "-DCBM" "-DUSE_TIMERS")
++ROOT_GENERATE_DICTIONARY(
++  G__KFParticleSimple
++  ${HEADERS}
++  LINKDEF KFSimpleLinkDef.h
++  OPTIONS "-DDO_TPCCATRACKER_EFF_PERFORMANCE" "-DNonhomogeneousField" "-DCBM" "-DUSE_TIMERS"
++  )
++
+ add_dependencies(KFParticleSimple KFParticleInterface)
+ target_link_libraries(KFParticleSimple ${ROOT_LIBRARIES} KFParticle KFParticleInterface Vc)
+ 
+diff --git a/src/KFSimpleLinkDef.h b/src/KFSimpleLinkDef.h
+index 985bdd0..1927013 100644
+--- a/src/KFSimpleLinkDef.h
++++ b/src/KFSimpleLinkDef.h
+@@ -1,7 +1,14 @@
+-#if defined(__CINT__) || defined(__CLING__)
++#ifdef __ROOTCLING__
+ 
+ #pragma link off all globals;
+ #pragma link off all classes;
+ #pragma link off all functions;
+ 
++#pragma link C++ struct SelectionValues + ;
++#pragma link C++ class Daughter + ;
++#pragma link C++ class Decay + ;
++#pragma link C++ class Mother + ;
++#pragma link C++ class NonLinearCutBase + ;
++#pragma link C++ class SimpleFinder + ;
++
+ #endif
+diff --git a/src/interface/CMakeLists.txt b/src/interface/CMakeLists.txt
+index 38b9722..e66c3ad 100644
+--- a/src/interface/CMakeLists.txt
++++ b/src/interface/CMakeLists.txt
+@@ -15,7 +15,13 @@ if(PROJECT_DEPENDENCIES)
+     add_dependencies(KFParticleInterface ${PROJECT_DEPENDENCIES})
+ endif()
+ 
+-ROOT_GENERATE_DICTIONARY(G__KFParticleInterface ${HEADERS} LINKDEF KFParticleInterfaceLinkDef.h OPTIONS "-DDO_TPCCATRACKER_EFF_PERFORMANCE" "-DNonhomogeneousField" "-DCBM" "-DUSE_TIMERS")
++ROOT_GENERATE_DICTIONARY(
++  G__KFParticleInterface
++  ${HEADERS}
++  LINKDEF KFParticleInterfaceLinkDef.h
++  OPTIONS "-DDO_TPCCATRACKER_EFF_PERFORMANCE" "-DNonhomogeneousField" "-DCBM" "-DUSE_TIMERS"
++  )
++
+ target_link_libraries(KFParticleInterface ${ROOT_LIBRARIES} KFParticle ${Vc_LIBRARIES})
+ 
+ add_target_property(KFParticleInterface COMPILE_FLAGS "-DDO_TPCCATRACKER_EFF_PERFORMANCE -DNonhomogeneousField -DCBM -DUSE_TIMERS")
+diff --git a/src/interface/KFParticleInterfaceLinkDef.h b/src/interface/KFParticleInterfaceLinkDef.h
+index 985bdd0..f02fe03 100644
+--- a/src/interface/KFParticleInterfaceLinkDef.h
++++ b/src/interface/KFParticleInterfaceLinkDef.h
+@@ -1,7 +1,10 @@
+-#if defined(__CINT__) || defined(__CLING__)
++#ifdef __ROOTCLING__
+ 
+ #pragma link off all globals;
+ #pragma link off all classes;
+ #pragma link off all functions;
+ 
++#pragma link C++ class InputContainer + ;
++#pragma link C++ class OutputContainer + ;
++
+ #endif

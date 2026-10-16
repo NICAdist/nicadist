@@ -1,0 +1,26 @@
+#!/bin/bash
+
+echo "Placeholder for script for building deb/rpm files"
+
+BUILD_LOWER=$(echo "$BUILD_RPM" | tr '[:upper:]' '[:lower:]')
+
+# If I don't want to build rpm (see defaults-nica.sh), terminate
+if [[ ! -v BUILD_RPM ]] || [[ "$BUILD_LOWER" == "false" || "$BUILD_LOWER" == "off" || "$BUILD_LOWER" == "0" || "$BUILD_LOWER" == "no" ]]; then
+  echo "I don't want to build rpm"
+  exit 0
+fi
+
+case "${ARCHITECTURE}" in
+  "slc9_x86-64")
+    BUILD_TARGET="rpm"
+    ;;
+  "ubuntu2604_x86-64")
+    BUILD_TARGET="deb"
+    ;;
+  *)
+    echo "Architecture ${ARCHITECTURE} not supported. Terminating."
+    exit 0
+    ;;
+esac
+
+echo "I am building package for architecture ${BUILD_TARGET}"

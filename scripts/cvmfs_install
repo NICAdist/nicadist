@@ -1,0 +1,66 @@
+#!/bin/bash
+CONTAINER_TOOL=${CONTAINER_TOOL-podman}
+HOST_CVMFS_BASE_DIR=${HOST_CVMFS_BASE_DIR-"/var/cvmfs"}
+IMAGE_NAME=${CVMFS_IMAGE-"registry.gitlab.com/ndmspc/user/cvmfs:latest"}
+#CONTAINER_OPT="--net=host --cap-add SYS_ADMIN --security-opt seccomp=unconfined --security-opt label=disable"
+CONTAINER_OPT="--net=host --privileged"
+CONTAINER_NAME="cvmfs"
+CVMFS_DEFAULT_CONFIG=${CVMFS_DEFAULT_CONFIG-"default.local"}
+
+
+if [ "$EUID" -ne 0 ];then
+    echo "Please run as root"
+    exit 1
+fi
+
+if [[ "$CONTAINER_TOOL" != "podman" ]];then
+    echo "Only 'podman' is supported !!!"
+    exit 1
+fi
+
+if [ "$1" = "clean" ] || [ "$1" = "reset" ];then
+    echo "Cleaning cvmfs ..."
+    if [ -f /etc/systemd/system/cvmfs.service ];then
+        echo "Stoping cvmfs"
+        systemctl stop cvmfs > /dev/null 2>&1
+        rm -f /etc/systemd/system/cvmfs.service
+        systemctl daemon-reload || { echo "Problem reloading systemd daemons !!!"; exit 6; }
+    fi
+    $CONTAINER_TOOL rm -f $CONTAINER_NAME > /dev/null 2>&1
+    $CONTAINER_TOOL rmi $IMAGE_NAME > /dev/null 2>&1
+    echo "CVMFS is cleaned OK"
+    [ "$1" = "clean" ] && exit 0
+fi
+
+echo "Installing cvmfs service as container ..."
+[ -d $HOST_CVMFS_BASE_DIR ] || mkdir -p $HOST_CVMFS_BASE_DIR || { echo "Problem creating directory '$HOST_CVMFS_BASE_DIR' !!!"; exit 2; }
+
+$CONTAINER_TOOL container exists $CONTAINER_NAME  > /dev/null 2>&1
+if [ $? -eq 0 ];then
+  [ -f /etc/systemd/system/cvmfs.service ] && systemctl stop cvmfs > /dev/null 2>&1
+  $CONTAINER_TOOL rm -f $CONTAINER_NAME > /dev/null 2>&1
+fi
+
+$CONTAINER_TOOL pull $IMAGE_NAME || { echo "Error pulling image '$IMAGE_NAME' !!!"; exit 3; }
+if [ ! -f /etc/cvmfs/default.local ];then
+    [ -d /etc/cvmfs/ ] || mkdir -p /etc/cvmfs
+    curl -o /etc/cvmfs/default.local https://gitlab.com/ndmspc/user/-/raw/main/services/cvmfs/$CVMFS_DEFAULT_CONFIG || { echo "Problem downloading default configration from  'https://gitlab.com/ndmspc/user/-/raw/main/services/cvmfs/'$CVMFS_DEFAULT_CONFIG !!!"; exit 3; }
+fi
+
+[ -f /etc/cvmfs/default.local ] && CONTAINER_OPT="$CONTAINER_OPT -v /etc/cvmfs/default.local:/etc/cvmfs/default.local"
+
+$CONTAINER_TOOL create $CONTAINER_OPT --device /dev/fuse -v $HOST_CVMFS_BASE_DIR:/cvmfs:shared --name $CONTAINER_NAME $IMAGE_NAME /usr/local/bin/cvmfs_mount || { echo "Problem creating container '$CONTAINER_NAME' from image 'IMAGE_NAME' !!!"; exit 4; }
+#  --new --stop-timeout=60
+$CONTAINER_TOOL generate systemd $CONTAINER_NAME > /etc/systemd/system/cvmfs.service || { echo "Problem generating systemd service !!!"; exit 5; }
+systemctl daemon-reload || { echo "Problem reloading systemd daemons !!!"; exit 6; }
+echo ""
+echo "To start run once : systemctl start cvmfs"
+echo ""
+echo "or start now and during the boot of machine"
+echo ""
+echo "To start run : systemctl enable --now cvmfs"
+echo ""
+echo "   Note: 'cvmfs' service is stoped now"
+echo ""
+echo "Custom changes can be applied in '/etc/cvmfs/default.local' and 'systemctl restart cvmfs'"
+echo ""

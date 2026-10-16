@@ -1,0 +1,8 @@
+CVMFS_REPOSITORIES=sft.cern.ch,alice.cern.ch,atlas.cern.ch,geant4.cern.ch,dirac.egi.eu,nica.jinr.ru,hybrilit.jinr.ru
+CVMFS_HTTP_PROXY="DIRECT"
+CVMFS_QUOTA_LIMIT=10000
+CVMFS_WORKSPACE=/var/lib/cvmfs
+CVMFS_CACHE_PRIMARY=nica
+CVMFS_CACHE_nica_TYPE=posix
+# 10000 MB cache
+CVMFS_CACHE_nica_QUOTA_LIMIT=10000

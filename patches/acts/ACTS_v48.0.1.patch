@@ -1,0 +1,129 @@
+diff --git a/Core/include/Acts/Propagator/SympyStepper.hpp b/Core/include/Acts/Propagator/SympyStepper.hpp
+index 0f7ee8329..2eda34079 100644
+--- a/Core/include/Acts/Propagator/SympyStepper.hpp
++++ b/Core/include/Acts/Propagator/SympyStepper.hpp
+@@ -46,7 +46,7 @@ class SympyStepper final {
+   /// Runtime options for sympy propagation.
+   struct Options : public StepperPlainOptions {
+     /// Whether to perform dense output
+-    bool doDense = true;
++    bool doDense = false;
+     /// Maximum radiation length fraction per step
+     double maxXOverX0Step = 1;
+ 
+diff --git a/Examples/Algorithms/Digitization/CMakeLists.txt b/Examples/Algorithms/Digitization/CMakeLists.txt
+index 2f0ddf3a3..868b494a9 100644
+--- a/Examples/Algorithms/Digitization/CMakeLists.txt
++++ b/Examples/Algorithms/Digitization/CMakeLists.txt
+@@ -7,6 +7,7 @@ acts_add_library(
+     src/DigitizationConfigurator.cpp
+     src/ModuleClusters.cpp
+     src/MuonSpacePointDigitizer.cpp
++    ACTS_INCLUDE_FOLDER include/ActsExamples
+ )
+ target_include_directories(
+     ActsExamplesDigitization
+diff --git a/Examples/Algorithms/TrackFinding/CMakeLists.txt b/Examples/Algorithms/TrackFinding/CMakeLists.txt
+index 5ecd3b2e4..5be7f17a7 100644
+--- a/Examples/Algorithms/TrackFinding/CMakeLists.txt
++++ b/Examples/Algorithms/TrackFinding/CMakeLists.txt
+@@ -12,6 +12,7 @@ acts_add_library(
+     src/TrackParamsLookupEstimation.cpp
+     src/GridTripletSeedingAlgorithm.cpp
+     src/OrthogonalTripletSeedingAlgorithm.cpp
++    ACTS_INCLUDE_FOLDER include/ActsExamples
+ )
+ 
+ target_include_directories(
+diff --git a/Examples/Algorithms/TrackFitting/CMakeLists.txt b/Examples/Algorithms/TrackFitting/CMakeLists.txt
+index fac3b2657..63cc8f30a 100644
+--- a/Examples/Algorithms/TrackFitting/CMakeLists.txt
++++ b/Examples/Algorithms/TrackFitting/CMakeLists.txt
+@@ -7,6 +7,7 @@ acts_add_library(
+     src/RefittingAlgorithm.cpp
+     src/GsfFitterFunction.cpp
+     src/GlobalChiSquareFitterFunction.cpp
++    ACTS_INCLUDE_FOLDER include/ActsExamples
+ )
+ target_include_directories(
+     ActsExamplesTrackFitting
+diff --git a/Examples/Algorithms/TruthTracking/CMakeLists.txt b/Examples/Algorithms/TruthTracking/CMakeLists.txt
+index 91958f288..112e01086 100644
+--- a/Examples/Algorithms/TruthTracking/CMakeLists.txt
++++ b/Examples/Algorithms/TruthTracking/CMakeLists.txt
+@@ -18,3 +18,5 @@ target_include_directories(
+     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+ )
+ target_link_libraries(ActsExamplesTruthTracking PUBLIC Acts::ExamplesFramework)
++
++install(DIRECTORY ActsExamples/TruthTracking DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/ActsExamples PATTERN "*.cpp" EXCLUDE)
+diff --git a/Examples/Detectors/Common/CMakeLists.txt b/Examples/Detectors/Common/CMakeLists.txt
+index ffd191266..1327cc59e 100644
+--- a/Examples/Detectors/Common/CMakeLists.txt
++++ b/Examples/Detectors/Common/CMakeLists.txt
+@@ -3,6 +3,7 @@ acts_add_library(
+     src/Detector.cpp
+     src/AlignmentDecorator.cpp
+     src/StructureSelector.cpp
++    ACTS_INCLUDE_FOLDER include/ActsExamples
+ )
+ target_include_directories(
+     ActsExamplesDetectorsCommon
+diff --git a/Examples/Framework/src/Validation/TrackClassification.cpp b/Examples/Framework/src/Validation/TrackClassification.cpp
+index cd6d4baab..06ecd548d 100644
+--- a/Examples/Framework/src/Validation/TrackClassification.cpp
++++ b/Examples/Framework/src/Validation/TrackClassification.cpp
+@@ -72,6 +72,7 @@ void ActsExamples::identifyContributingParticles(
+   }
+ 
+   trajectories.multiTrajectory().visitBackwards(tip, [&](const auto& state) {
++#if 0 // patched for MpdRoot
+     // no truth info with non-measurement state
+     if (!state.typeFlags().isMeasurement()) {
+       return true;
+@@ -80,6 +81,12 @@ void ActsExamples::identifyContributingParticles(
+     if (state.typeFlags().isOutlier()) {
+       return true;
+     }
++#else
++    // no truth info with non-measurement state
++    if (!state.typeFlags().hasMeasurement()) {
++      return true;
++    }
++#endif
+     // register all particles that generated this hit
+     IndexSourceLink sl =
+         state.getUncalibratedSourceLink().template get<IndexSourceLink>();
+@@ -100,6 +107,7 @@ void ActsExamples::identifyContributingParticles(
+   particleHitCounts.clear();
+ 
+   for (const auto& state : track.trackStatesReversed()) {
++#if 0 // patched for MpdRoot
+     // no truth info with non-measurement state
+     if (!state.typeFlags().isMeasurement()) {
+       continue;
+@@ -112,6 +120,12 @@ void ActsExamples::identifyContributingParticles(
+         nullptr) {
+       continue;
+     }
++#else
++    // no truth info with non-measurement state
++    if (!state.typeFlags().hasMeasurement()) {
++      continue;
++    }
++#endif
+     // register all particles that generated this hit
+     IndexSourceLink sl =
+         state.getUncalibratedSourceLink().template get<IndexSourceLink>();
+diff --git a/Examples/Io/Root/CMakeLists.txt b/Examples/Io/Root/CMakeLists.txt
+index 9f88fe581..f2455957e 100644
+--- a/Examples/Io/Root/CMakeLists.txt
++++ b/Examples/Io/Root/CMakeLists.txt
+@@ -33,6 +33,7 @@ acts_add_library(
+     src/RootMuonSpacePointReader.cpp
+     src/RootMeasurementPerformanceWriter.cpp
+     src/RootFileHasher.cpp
++    ACTS_INCLUDE_FOLDER include/ActsExamples
+ )
+ target_include_directories(
+     ActsExamplesIoRoot

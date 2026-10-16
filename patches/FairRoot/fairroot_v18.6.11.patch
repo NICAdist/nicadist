@@ -1,0 +1,601 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ac5119741..52414eb05 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -183,7 +183,7 @@ if(NOT dep STREQUAL "Boost")
+ endif()
+ endforeach()
+ 
+-find_package2(PUBLIC Pythia6)
++# find_package2(PUBLIC Pythia6)
+ find_package2(PUBLIC Pythia8)
+ # Protobuf https://github.com/protocolbuffers/protobuf/releases/tag/v22.0
+ # added a new dependency to abseil which is not handled yet by CMake's
+@@ -203,14 +203,14 @@ endif()
+ find_package2(PUBLIC msgpack)
+ find_package2(PUBLIC Flatbuffers)
+ 
+-find_package2(PUBLIC Geant3)
++# find_package2(PUBLIC Geant3)
+ find_package2(PUBLIC Geant4)
+ 
+ Find_Package2(PUBLIC VGM)
+ 
+ find_package2(PUBLIC Geant4VMC)
+ 
+-find_package2(PUBLIC IWYU)
++# find_package2(PUBLIC IWYU)
+ 
+ find_package2(PUBLIC GSL)
+ if(NOT DEFINED GTEST_ROOT)
+@@ -487,6 +487,27 @@ if(PROJECT_PACKAGE_DEPENDENCIES)
+       else()
+         set(version_str "${BGreen}${${dep}_VERSION}${CR}")
+       endif()
++    elseif(${dep} STREQUAL GSL)
++      if(GSL_DIR MATCHES "GSL/v([0-9]+\\.[0-9]+)")
++        set(GSL_VERSION "${CMAKE_MATCH_1}")
++        set(version_str "${BGreen}${GSL_VERSION}${CR}")
++      else()
++        set(version_str "${BYellow}unknown${CR}")
++      endif()
++    elseif(${dep} STREQUAL ClangFormat)
++      find_program(CLANG_FORMAT_EXECUTABLE NAMES clang-format)
++      if(CLANG_FORMAT_EXECUTABLE)
++        execute_process(
++          COMMAND "${CLANG_FORMAT_EXECUTABLE}" "--version"
++          OUTPUT_VARIABLE CLANG_FORMAT_VERSION_RAW_OUTPUT
++          ERROR_QUIET
++          OUTPUT_STRIP_TRAILING_WHITESPACE # Removes trailing newlines and whitespace
++          )
++        string(REGEX REPLACE "clang-format version ([0-9.]+).*" "\\1" CLANG_FORMAT_VERSION "${CLANG_FORMAT_VERSION_RAW_OUTPUT}")
++        set(version_str "${BGreen}${CLANG_FORMAT_VERSION}${CR}")
++      else()
++        set(version_str "${BYellow}unknown${CR}")
++      endif()
+     else()
+       set(version_str "${BYellow}unknown${CR}")
+     endif()
+@@ -508,14 +529,18 @@ if(PROJECT_PACKAGE_DEPENDENCIES)
+       endif()
+       get_filename_component(prefix ${boost_include}/.. ABSOLUTE)
+     elseif(${dep} STREQUAL Protobuf)
+-      get_filename_component(prefix ${Protobuf_INCLUDE_DIRS}/.. ABSOLUTE)
++      get_filename_component(prefix ${Protobuf_DIR}/../../.. ABSOLUTE)
+     elseif(${dep} STREQUAL msgpack)
+       get_target_property(msgpack_include msgpackc INTERFACE_INCLUDE_DIRECTORIES)
+       get_filename_component(prefix ${msgpack_include}/.. ABSOLUTE)
++    elseif(${dep} STREQUAL GSL)
++      get_filename_component(prefix ${GSL_DIR} ABSOLUTE)
++    elseif(${dep} STREQUAL ClangFormat)
++      get_filename_component(prefix ${CLANG_FORMAT_BIN}/../.. ABSOLUTE)
+     elseif(${dep} STREQUAL Pythia6)
+       get_filename_component(prefix ${PYTHIA6_LIBRARY_DIR}/.. ABSOLUTE)
+     elseif(${dep} STREQUAL Pythia8)
+-      get_filename_component(prefix ${PYTHIA8_LIB_DIR}/.. ABSOLUTE)
++      get_filename_component(prefix ${Pythia8_LIBDIR}/.. ABSOLUTE)
+     elseif(${dep} STREQUAL FairLogger)
+       if(FairLogger_PREFIX)
+         set(prefix ${FairLogger_PREFIX})
+@@ -594,7 +619,7 @@ if(BUILD_EXAMPLES)
+ else()
+   set(examples_summary "${BRed} NO${CR}    (enable with ${BMagenta}-DBBUILD_EXAMPLES=ON${CR})")
+ endif()
+-message(STATUS "  ${BWhite}Examples${CR}             ${examples_summary}")
++message(STATUS "  ${BWhite}Examples${CR}            ${examples_summary}")
+ 
+ if(BUILD_DOXYGEN)
+   set(doxygen_summary "${BGreen}YES${CR}    (default, disable with ${BMagenta}-DBUILD_DOXYGENS=OFF${CR})")
+diff --git a/README.md b/README.md
+index 4f801e486..59b7a7ce8 100644
+--- a/README.md
++++ b/README.md
+@@ -30,7 +30,7 @@ The template demonstrate and implement the following:
+ 
+ ### Optional change of output tree name
+ 
+-By default, the name of the tree in output ROOT file is "cbmsim". In case you want to change it for your Project, you need to create "config" folder inside of top source directory of the Project and place there "rootmanager.dat" text file with following single line: "treename=name_you_chose".
++By default, the name of the tree in output ROOT file is "mpdsim". In case you want to change it for your Project, you need to create "config" folder inside of top source directory of the Project and place there "rootmanager.dat" text file with following single line: "treename=name_you_chose".
+ 
+ ```bash
+ cd PROJECT_TOP_DIR
+diff --git a/base/MQ/policies/Storage/RootOutFileManager.h b/base/MQ/policies/Storage/RootOutFileManager.h
+index e28269550..3290e2fe7 100644
+--- a/base/MQ/policies/Storage/RootOutFileManager.h
++++ b/base/MQ/policies/Storage/RootOutFileManager.h
+@@ -253,7 +253,7 @@ class RootOutFileManager
+             }
+         }
+ 
+-        fFolder = new TFolder("cbmroot", "/cbmroot");
++        fFolder = new TFolder("mpdroot", "/mpdroot");
+         TList* branchNameList = new TList();
+         branchNameList->AddLast(new TObjString(fBranchName.c_str()));
+         branchNameList->Write("BranchList", TObject::kSingleKey);
+diff --git a/base/source/FairFileSource.cxx b/base/source/FairFileSource.cxx
+index ef49a6937..6362f4762 100644
+--- a/base/source/FairFileSource.cxx
++++ b/base/source/FairFileSource.cxx
+@@ -193,9 +193,9 @@ Bool_t FairFileSource::Init()
+     // There are two different names possible, so check both.
+     fCbmroot = dynamic_cast<TFolder*>(fRootFile->Get(FairRootManager::GetFolderName()));
+     if (!fCbmroot) {
+-        fCbmroot = dynamic_cast<TFolder*>(fRootFile->Get("cbmroot"));
++        fCbmroot = dynamic_cast<TFolder*>(fRootFile->Get("mpdroot"));
+         if (!fCbmroot) {
+-            fCbmroot = dynamic_cast<TFolder*>(fRootFile->Get("cbmout"));
++            fCbmroot = dynamic_cast<TFolder*>(fRootFile->Get("mpdout"));
+             if (!fCbmroot) {
+                 fCbmroot = gROOT->GetRootFolder()->AddFolder(FairRootManager::GetFolderName(), "Main Folder");
+             } else {
+@@ -546,15 +546,15 @@ void FairFileSource::CreateNewFriendChain(TString inputFile, TString inputLevel)
+     TString folderName = Form("/%s", folderName1.Data());
+     added = dynamic_cast<TFolder*>(f->Get(folderName1));
+     if (!added) {
+-        folderName = "/cbmout";
+-        folderName1 = "cbmout";
+-        added = dynamic_cast<TFolder*>(f->Get("cbmout"));
++        folderName = "/mpdout";
++        folderName1 = "mpdout";
++        added = dynamic_cast<TFolder*>(f->Get("mpdout"));
+         if (!added) {
+-            folderName = "/cbmroot";
+-            folderName1 = "cbmroot";
+-            added = dynamic_cast<TFolder*>(f->Get("cbmroot"));
++            folderName = "/mpdroot";
++            folderName1 = "mpdroot";
++            added = dynamic_cast<TFolder*>(f->Get("mpdroot"));
+             if (!added) {
+-                LOG(fatal) << "Could not find folder cbmout nor cbmroot.";
++                LOG(fatal) << "Could not find folder mpdout nor mpdroot.";
+                 exit(-1);
+             }
+         }
+diff --git a/base/source/FairMixedSource.cxx b/base/source/FairMixedSource.cxx
+index c2a447d95..1b78c1dba 100644
+--- a/base/source/FairMixedSource.cxx
++++ b/base/source/FairMixedSource.cxx
+@@ -233,9 +233,9 @@ Bool_t FairMixedSource::Init()
+     // There are two different names possible, so check both.
+     fCbmroot = dynamic_cast<TFolder*>(fRootFile->Get(FairRootManager::GetFolderName()));
+     if (!fCbmroot) {
+-        fCbmroot = dynamic_cast<TFolder*>(fRootFile->Get("cbmroot"));
++        fCbmroot = dynamic_cast<TFolder*>(fRootFile->Get("mpdroot"));
+         if (!fCbmroot) {
+-            fCbmroot = dynamic_cast<TFolder*>(fRootFile->Get("cbmout"));
++            fCbmroot = dynamic_cast<TFolder*>(fRootFile->Get("mpdout"));
+             if (!fCbmroot) {
+                 fCbmroot = gROOT->GetRootFolder()->AddFolder(FairRootManager::GetFolderName(), "Main Folder");
+             } else {
+@@ -550,9 +550,9 @@ Bool_t FairMixedSource::OpenBackgroundChain()
+     // There are two different names possible, so check both.
+     fCbmroot = dynamic_cast<TFolder*>(fRootFile->Get(FairRootManager::GetFolderName()));
+     if (!fCbmroot) {
+-        fCbmroot = dynamic_cast<TFolder*>(fRootFile->Get("cbmroot"));
++        fCbmroot = dynamic_cast<TFolder*>(fRootFile->Get("mpdroot"));
+         if (!fCbmroot) {
+-            fCbmroot = dynamic_cast<TFolder*>(fRootFile->Get("cbmout"));
++            fCbmroot = dynamic_cast<TFolder*>(fRootFile->Get("mpdout"));
+             if (!fCbmroot) {
+                 fCbmroot = gROOT->GetRootFolder()->AddFolder(FairRootManager::GetFolderName(), "Main Folder");
+             } else {
+diff --git a/base/steer/FairRootManager.cxx b/base/steer/FairRootManager.cxx
+index b17eb8774..ea3d78034 100644
+--- a/base/steer/FairRootManager.cxx
++++ b/base/steer/FairRootManager.cxx
+@@ -523,7 +523,6 @@ Bool_t FairRootManager::ReadNextEvent(Double_t)
+ 
+ TObject* FairRootManager::GetObject(const char* BrName)
+ {
+-    fReqBrNames.emplace_back(BrName);
+     /**Get Data object by name*/
+     TObject* Obj = nullptr;
+     LOG(debug2) << " Try to find if the object " << BrName << " is already activated by another task or call";
+@@ -1024,7 +1023,7 @@ const char* FairRootManager::GetTreeName()
+         return Form("%s", nameFromFile.c_str());
+     }
+ 
+-    return "cbmsim";
++    return "mpdsim";
+ }
+ 
+ const char* FairRootManager::GetFolderName()
+@@ -1039,9 +1038,9 @@ const char* FairRootManager::GetFolderName()
+     }
+ 
+     if (!FairRun::Instance()->IsAna()) {
+-        return "cbmroot";
++        return "mpdroot";
+     }
+-    return "cbmout";
++    return "mpdout";
+ }
+ 
+ void FairRootManager::EmitMemoryBranchWrongTypeWarning(const char* brname, const char* type1, const char* type2) const
+diff --git a/base/steer/FairRootManager.h b/base/steer/FairRootManager.h
+index 11eede224..83e6901e8 100644
+--- a/base/steer/FairRootManager.h
++++ b/base/steer/FairRootManager.h
+@@ -90,8 +90,6 @@ class FairRootManager : public TObject
+ 
+     /**Return a TList of TObjString of branch names available in this session*/
+     TList* GetBranchNameList() { return fBranchNameList; }
+-    /**Return the vector of branch names that were requested by tasks as input*/
+-    const std::vector<std::string>& GetReqBranchNames() const { return fReqBrNames; }
+ 
+     /**  Get the Object (container) for the given branch name,
+          this method can be used to access the data of
+@@ -371,8 +369,6 @@ class FairRootManager : public TObject
+     Int_t fBranchSeqId;
+     /**List of branch names as TObjString*/
+     TList* fBranchNameList;   //!
+-    /**Vector of (not necessarily unique) branch names requested per GetObject / InitObjectAs */
+-    std::vector<std::string> fReqBrNames;   //!
+ 
+     /**The branch ID for the special (required) MCTrack branch**/
+     Int_t fMCTrackBranchId;   //!
+@@ -429,7 +425,7 @@ class FairRootManager : public TObject
+     // data members
+     Int_t fId;   // This manager ID
+ 
+-    ClassDef(FairRootManager, 12);
++    ClassDef(FairRootManager, 13);
+ };
+ 
+ // FIXME: move to source since we can make it non-template dependent
+@@ -514,9 +510,6 @@ TPtr FairRootManager::InitObjectAs(const char* brname)
+     }
+     // add into branch list
+     AddMemoryBranchAny<T>(brname, addr);
+-    // register as a **requested** branch
+-    // (duplications are explicitely allowed)
+-    fReqBrNames.emplace_back(brname);
+ 
+     // NOTE: ideally we would do proper resource management for addr and *addr
+     // since the FairRootManager becomes owner of these pointers/instances; Unfortunately this
+diff --git a/base/steer/FairTask.cxx b/base/steer/FairTask.cxx
+index accb54c04..605493b60 100644
+--- a/base/steer/FairTask.cxx
++++ b/base/steer/FairTask.cxx
+@@ -19,6 +19,31 @@
+ #include <cstdio>          // printf
+ #include <utility>         // pair
+ 
++//---- START of QA customization for MPDRoot ----//
++#include <TFile.h>
++#include <TDirectory.h>
++
++int FairTask::fTasksWithHistograms = 0;
++
++void FairTask::WriteHistograms()
++{
++   if (fTaskHistograms->IsEmpty()) return;
++
++   Option_t *fileAccess = (fTasksWithHistograms) ? "UPDATE" : "RECREATE" ;
++   TFile *outputFile = new TFile(kHistogramsFilename, fileAccess);
++   fTasksWithHistograms++;
++   TString taskDirname = TString(std::to_string(fTasksWithHistograms)) + TString("_") + this->GetName();
++   TDirectory *taskDir = outputFile->mkdir(taskDirname);
++   taskDir->cd();
++   
++   TObject *obj;
++   TIter next(fTaskHistograms);
++   while (obj=next()) obj->Write();
++
++   outputFile->Close();
++}
++//---- END of QA customization for MPDRoot ----//
++
+ FairTask::FairTask()
+     : TTask()
+     , fVerbose(0)
+@@ -26,7 +51,11 @@ FairTask::FairTask()
+     , fLogger(FairLogger::GetLogger())
+     , fStreamProcessing(kFALSE)
+     , fOutputPersistance()
+-{}
++{
++//---- START of QA customization for MPDRoot ----//
++    fTaskHistograms = new TList();
++//---- END of QA customization for MPDRoot ----//  
++}
+ 
+ FairTask::FairTask(const char* name, Int_t iVerbose)
+     : TTask(name, "FairTask")
+@@ -34,7 +63,11 @@ FairTask::FairTask(const char* name, Int_t iVerbose)
+     , fInputPersistance(-1)
+     , fLogger(FairLogger::GetLogger())
+     , fOutputPersistance()
+-{}
++{
++//---- START of QA customization for MPDRoot ----//
++    fTaskHistograms = new TList();
++//---- END of QA customization for MPDRoot ----//  
++}
+ 
+ FairTask::~FairTask() {}
+ 
+@@ -217,6 +250,9 @@ void FairTask::SetParTasks()
+ 
+ void FairTask::FinishTasks()
+ {
++//---- START of QA customization for MPDRoot ----//
++    WriteHistograms();
++//---- END of QA customization for MPDRoot ----//
+     TIter next(GetListOfTasks());
+     FairTask* task;
+     while ((task = dynamic_cast<FairTask*>(next()))) {
+diff --git a/base/steer/FairTask.h b/base/steer/FairTask.h
+index 445affe34..8a1733b49 100644
+--- a/base/steer/FairTask.h
++++ b/base/steer/FairTask.h
+@@ -97,6 +97,13 @@ class FairTask : public TTask
+     void SetStreamProcessing(Bool_t val = kTRUE) { fStreamProcessing = val; }
+ 
+   protected:
++//---- START of QA customization for MPDRoot ----//
++    TList* fTaskHistograms;
++    const TString kHistogramsFilename = "TasksHistograms.root";
++    static int fTasksWithHistograms;
++    void WriteHistograms();
++//---- END of QA customization for MPDRoot ----//
++
+     Int_t fVerbose;            //  Verbosity level
+     Int_t fInputPersistance;   ///< Indicates if input branch is persistant
+     FairLogger* fLogger;       //!
+diff --git a/cmake/modules/FindPythia8.cmake b/cmake/modules/FindPythia8.cmake
+index 87515ee10..f4ffcca3e 100644
+--- a/cmake/modules/FindPythia8.cmake
++++ b/cmake/modules/FindPythia8.cmake
+@@ -1,86 +1,78 @@
+- ################################################################################
+- #    Copyright (C) 2014 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH    #
+- #                                                                              #
+- #              This software is distributed under the terms of the             #
+- #              GNU Lesser General Public Licence (LGPL) version 3,             #
+- #                  copied verbatim in the file "LICENSE"                       #
+- ################################################################################
+-# - Try to find PYTHIA8 instalation
++################################################################################
++# - Try to find Pythia8 instalation
+ # Once done this will define
+-# PYTHIA8_INCLUDE_DIR     where to locate Pythia.h file
+-# PYTHIA8_LIBRARY         where to find the libpythia8 library
+-# PYTHIA8_<lib>_LIBRARY   Addicional libraries
+-# PYTHIA8_LIBRARIES       (not cached) the libraries to link against to use Pythia8
+-# PYTHIA8_FOUND           if false, you cannot build anything that requires Pythia8
+-# PYTHIA8_VERSION         version of Pythia8 if found
++# Pythia8_INCLUDE_DIR     where to locate Pythia.h file
++# Pythia8_LIBRARY         where to find the libpythia8 library
++# Pythia8_<lib>_LIBRARY   Aditional libraries
++# Pythia8_LIBRARIES       (not cached) the libraries to link against to use Pythia8
++# Pythia8_FOUND           if false, you cannot build anything that requires Pythia8
++# Pythia8_VERSION         version of Pythia8 if found
+ ################################################################################
+-
+ set(_pythia8dirs
+     ${PYTHIA8}
+     $ENV{PYTHIA8}
+-    ${PYTHIA8_DIR}
+     $ENV{PYTHIA8_DIR}
+     $ENV{PYTHIA_ROOT}
+-    ${AlFa_DIR}
+-    ${SIMPATH}
+-    ${SIMPATH}/generators
+     /usr
+     /opt/pythia8)
+ 
+-find_path(PYTHIA8_INCLUDE_DIR
+-          NAMES Pythia8/Pythia.h pythia8/Pythia.h  pythia8/pythia.h Pythia8/pythia.h
++find_path(Pythia8_INCLUDE_DIR
++          NAMES Pythia8/Pythia.h pythia8/pythia.h
+           HINTS ${_pythia8dirs}
+-          PATH_SUFFIXES include include/Pythia8 include/pythia8
+-          DOC "Specify the directory containing Pythia.h.")
+-
+-if(PYTHIA8_INCLUDE_DIR MATCHES "include$")
+-  get_filename_component(PYTHIA8_PREFIX ${PYTHIA8_INCLUDE_DIR}/.. ABSOLUTE)
+-elseif()
+-  get_filename_component(PYTHIA8_PREFIX ${PYTHIA8_INCLUDE_DIR}/../.. ABSOLUTE)
+-endif()
++          PATH_SUFFIXES include
++          DOC "Directory containing Pythia8 includes (like Pythia8/Pythia.h).")
+ 
+-find_library(PYTHIA8_LIBRARY
++find_library(Pythia8_LIBRARY
+              NAMES pythia8 Pythia8
+              HINTS ${_pythia8dirs}
+              PATH_SUFFIXES lib
+-             DOC "Specify the Pythia8 library here.")
++             DOC "Pythia8 library used for linking.")
+ 
+-find_path(PYTHIA8_LIB_DIR  NAMES libpythia8.so libpythia8.dylib PATHS
+-               $ENV{PYTHIA_ROOT}/lib
+-               ${PYTHIA8_DIR}/lib
+-               ${AlFa_DIR}/lib
+-               ${SIMPATH}/lib
+-               ${SIMPATH}/generators/lib
+-               NO_DEFAULT_PATH
+-             )
++find_path(Pythia8_LIBDIR 
++             NAMES libpythia8.so libpythia8.dylib PATHS
++             HINTS ${_pythia8dirs}
++             PATH_SUFFIXES lib
++             NO_DEFAULT_PATH
++             DOC "Where Pythia8 libraries are stored.")
+ 
+-find_library(PYTHIA8_hepmcinterface_LIBRARY
++find_library(Pythia8_hepmcinterface_LIBRARY
+              NAMES hepmcinterface pythia8tohepmc
+              HINTS ${_pythia8dirs}
+              PATH_SUFFIXES lib)
+ 
+-find_library(PYTHIA8_lhapdfdummy_LIBRARY
++find_library(Pythia8_lhapdfdummy_LIBRARY
+              NAMES lhapdfdummy
+              HINTS ${_pythia8dirs}
+              PATH_SUFFIXES lib)
+ 
+-
+ find_path(PYTHIA8DATA
+-  NAMES MainProgramSettings.xml
+-  HINTS
+-  ${PYTHIA8_PREFIX}/share/Pythia8/xmldoc
+-  ${PYTHIA8_PREFIX}/share/pythia8/xmldoc)
++          NAMES MainProgramSettings.xml
++          HINTS ${_pythia8dirs}
++          PATH_SUFFIXES share/Pythia8/xmldoc share/pythia8/xmldoc          )
++
++find_program(Pythia8_CONFIG_EXECUTABLE
++             NAMES pythia8-config
++             HINTS ${_pythia8dirs}
++             PATH_SUFFIXES bin
++             DOC "Pythia8 configuration info.")
+ 
+ foreach(_lib PYTHIA8_LIBRARY PYTHIA8_hepmcinterface_LIBRARY PYTHIA8_lhapdfdummy_LIBRARY)
+   if(${_lib})
+     set(PYTHIA8_LIBRARIES ${PYTHIA8_LIBRARIES} ${${_lib}})
+   endif()
+ endforeach()
+-set(PYTHIA8_INCLUDE_DIRS ${PYTHIA8_INCLUDE_DIR} ${PYTHIA8_INCLUDE_DIR}/Pythia8 )
+ 
+-# handle the QUIETLY and REQUIRED arguments and set PYTHIA8_FOUND to TRUE if
+-# all listed variables are TRUE
++string(REPLACE "/lib" "" Pythia8_ROOT ${Pythia8_LIBDIR}) # just some prettyprinting
+ 
+ include(FindPackageHandleStandardArgs)
+-find_package_handle_standard_args(Pythia8 DEFAULT_MSG PYTHIA8_INCLUDE_DIR PYTHIA8_LIBRARY PYTHIA8DATA)
+-mark_as_advanced(PYTHIA8_INCLUDE_DIR PYTHIA8_LIBRARY PYTHIA8_hepmcinterface_LIBRARY PYTHIA8_lhapdfdummy_LIBRARY)
++find_package_handle_standard_args(Pythia8 DEFAULT_MSG Pythia8_ROOT Pythia8_LIBDIR Pythia8_INCLUDE_DIR Pythia8_LIBRARY PYTHIA8DATA Pythia8_CONFIG_EXECUTABLE)
++mark_as_advanced(Pythia8_FOUND Pythia8_LIBDIR Pythia8_INCLUDE_DIR Pythia8_LIBRARY Pythia8_hepmcinterface_LIBRARY Pythia8_lhapdfdummy_LIBRARY Pythia8_CONFIG_EXECUTABLE)
++
++# Build Pythia8 version in the form of X+.X.X+
++if (Pythia8_FOUND)
++  execute_process(COMMAND ${Pythia8_CONFIG_EXECUTABLE} --version OUTPUT_VARIABLE Pythia8_VERSION_RAW)
++  string(REGEX MATCH "^([0-9]+)\\.([0-9])([0-9]+)" Pythia8_PROGRAM_VERSION ${Pythia8_VERSION_RAW})
++  set(Pythia8_VERSION ${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3})
++  unset(Pythia8_VERSION_RAW)
++  unset(Pythia8_PROGRAM_VERSION)
++endif()
+diff --git a/examples/MQ/pixelDetector/src/devices/FairMQPixelFileSink.cxx b/examples/MQ/pixelDetector/src/devices/FairMQPixelFileSink.cxx
+index c7a4eb470..b09690702 100644
+--- a/examples/MQ/pixelDetector/src/devices/FairMQPixelFileSink.cxx
++++ b/examples/MQ/pixelDetector/src/devices/FairMQPixelFileSink.cxx
+@@ -49,7 +49,7 @@ void FairMQPixelFileSink::InitTask()
+ 
+     LOG(info) << "SHOULD CREATE THE FILE AND TREE";
+     fFileOption = "RECREATE";
+-    fTreeName = "cbmsim";
++    fTreeName = "mpdsim";
+ 
+     if (::getenv("DDS_SESSION_ID")) {
+         std::string DDS_SESSION_ID = ::getenv("DDS_SESSION_ID");
+diff --git a/examples/MQ/pixelDetector/src/devices/FairMQPixelFileSinkBin.cxx b/examples/MQ/pixelDetector/src/devices/FairMQPixelFileSinkBin.cxx
+index f2c621c28..fa4aa1343 100644
+--- a/examples/MQ/pixelDetector/src/devices/FairMQPixelFileSinkBin.cxx
++++ b/examples/MQ/pixelDetector/src/devices/FairMQPixelFileSinkBin.cxx
+@@ -60,13 +60,13 @@ void FairMQPixelFileSinkBin::Init()
+ 
+     LOG(info) << "SHOULD CREATE THE FILE AND TREE";
+     fFileOption = "RECREATE";
+-    fTreeName = "cbmsim";
++    fTreeName = "mpdsim";
+ 
+     fOutFile = TFile::Open(fFileName.c_str(), fFileOption.c_str());
+ 
+     fTree = new TTree(fTreeName.c_str(), "/cbmout");
+ 
+-    fFolder = new TFolder("cbmout", "Main Output Folder");
++    fFolder = new TFolder("mpdout", "Main Output Folder");
+     TFolder* foldEventHeader = fFolder->AddFolder("EvtHeader", "EvtHeader");
+     TFolder* foldPixel = fFolder->AddFolder("Pixel", "Pixel");
+ 
+diff --git a/examples/MQ/serialization/1-simple/Ex1Sampler.h b/examples/MQ/serialization/1-simple/Ex1Sampler.h
+index 240c395d8..2ce71db28 100644
+--- a/examples/MQ/serialization/1-simple/Ex1Sampler.h
++++ b/examples/MQ/serialization/1-simple/Ex1Sampler.h
+@@ -34,7 +34,7 @@ class Ex1Sampler : public fair::mq::Device
+         fFileName = fConfig->GetValue<std::string>("input-file");
+         fInputFile = TFile::Open(fFileName.c_str(), "READ");
+         if (fInputFile) {
+-            fTree = static_cast<TTree*>(fInputFile->Get("cbmsim"));
++            fTree = static_cast<TTree*>(fInputFile->Get("mpdsim"));
+             if (fTree) {
+                 fTree->SetBranchAddress("MyDigi", &fInput);
+             } else {
+diff --git a/examples/MQ/serialization/2-multipart/Ex2Sampler.h b/examples/MQ/serialization/2-multipart/Ex2Sampler.h
+index 4df405b26..9b516d070 100644
+--- a/examples/MQ/serialization/2-multipart/Ex2Sampler.h
++++ b/examples/MQ/serialization/2-multipart/Ex2Sampler.h
+@@ -34,7 +34,7 @@ class Ex2Sampler : public fair::mq::Device
+         fFileName = fConfig->GetValue<std::string>("input-file");
+         fInputFile = TFile::Open(fFileName.c_str(), "READ");
+         if (fInputFile) {
+-            fTree = static_cast<TTree*>(fInputFile->Get("cbmsim"));
++            fTree = static_cast<TTree*>(fInputFile->Get("mpdsim"));
+             if (fTree) {
+                 fTree->SetBranchAddress("MyDigi", &fInput);
+             } else {
+diff --git a/examples/advanced/propagator/macros/runPull.C b/examples/advanced/propagator/macros/runPull.C
+index 4eb4aaa2f..5cca88565 100644
+--- a/examples/advanced/propagator/macros/runPull.C
++++ b/examples/advanced/propagator/macros/runPull.C
+@@ -16,7 +16,7 @@ int runPull(std::string propName = "rk", bool drawHist = false)
+     gStyle->SetOptFit(1);
+ 
+     TFile *f = new TFile(Form("prop.%s.cal.root", propName.data()));
+-    TTree *simtree = (TTree *)f->Get("cbmsim");
++    TTree *simtree = (TTree *)f->Get("mpdsim");
+ 
+     TClonesArray *fTrackParProp = new TClonesArray("FairTrackParP");
+     TClonesArray *fTrackParIni = new TClonesArray("FairTrackParP");
+diff --git a/examples/simulation/Tutorial4/macros/plots.C b/examples/simulation/Tutorial4/macros/plots.C
+index f7e563641..6d6396191 100644
+--- a/examples/simulation/Tutorial4/macros/plots.C
++++ b/examples/simulation/Tutorial4/macros/plots.C
+@@ -29,8 +29,8 @@ plots(Int_t nEvents = 1000, Int_t iout = 1, TString mcEngine = "TGeant3")
+     TFile *f1 = TFile::Open(MCFile);
+     TFile *f2 = TFile::Open(RecoFile);
+ 
+-    TTree *t1 = f1->Get("cbmsim");
+-    TTree *t2 = f2->Get("cbmsim");
++    TTree *t1 = f1->Get("mpdsim");
++    TTree *t2 = f2->Get("mpdsim");
+ 
+     FairMCEventHeader *MCEventHeader = new FairMCEventHeader();
+     TClonesArray *MCTracks = new TClonesArray("FairMCTrack");
+diff --git a/fairtools/MCConfigurator/CMakeLists.txt b/fairtools/MCConfigurator/CMakeLists.txt
+index 3f10ed84d..ad5446bbb 100644
+--- a/fairtools/MCConfigurator/CMakeLists.txt
++++ b/fairtools/MCConfigurator/CMakeLists.txt
+@@ -37,7 +37,7 @@ target_link_libraries(${target} PUBLIC
+ 
+   geant321
+   geant4vmc
+-  ${YAMLCPPLIB}
++  yaml-cpp::yaml-cpp
+ 
+   Core
+   ${VMCLIB}
+diff --git a/parbase/FairRuntimeDb.cxx b/parbase/FairRuntimeDb.cxx
+index 1b6fa6629..07b8210aa 100644
+--- a/parbase/FairRuntimeDb.cxx
++++ b/parbase/FairRuntimeDb.cxx
+@@ -101,7 +101,7 @@ void FairRuntimeDb::addContFactory(FairContFact* fact)
+ {
+     // Adds a container factory to the list of factories
+     if (!(contFactories.FindObject(fact->GetName()))) {
+-        LOG(debug) << "- RTDB container factory " << fact->GetName() << "\n";
++        LOG(debug) << "Added RTDB container factory " << fact->GetName();
+         contFactories.Add(fact);
+     }
+ }
+@@ -110,7 +110,7 @@ void FairRuntimeDb::removeContFactory(FairContFact* fact)
+ {
+     // removes a container factory to the list of factories
+     if ((contFactories.Remove(fact))) {
+-        LOG(debug) << "removed RTDB container factory " << fact->GetName();
++        LOG(debug) << "Removed RTDB container factory " << fact->GetName();
+     }
+ }
+ 
