@@ -57,17 +57,14 @@ MODULEFILE="etc/modulefiles/$PKGNAME"
 alibuild-generate-module --bin --lib > "$MODULEFILE"
 cat >> "$MODULEFILE" << EoF
 # Our environment
-setenv NDMSPC_RELEASE \$version
-setenv NDMSPC_BASEDIR \$::env(BASEDIR)/$PKGNAME
-setenv NDMSPC_DIR \$::env(NDMSPC_BASEDIR)/\$::env(NDMSPC_RELEASE)
-setenv NDMSPC_MACRO_DIR \$::env(NDMSPC_DIR)/macros
-setenv NDMSPC_TUTORIAL_DIR \$::env(NDMSPC_DIR)/tutorial
+setenv NDMSPC_DIR \$PKG_ROOT
+setenv NDMSPC_MACRO_DIR \$PKG_ROOT/macros
+setenv NDMSPC_TUTORIAL_DIR \$PKG_ROOT/tutorial
 prepend-path ROOT_DYN_PATH \$PKG_ROOT/lib
+prepend-path ROOT_INCLUDE_PATH \$PKG_ROOT/include
 prepend-path ROOT_INCLUDE_PATH \$PKG_ROOT/include/ndmspc
 EoF
 
 mkdir -p $INSTALLROOT/etc/modulefiles && rsync -a --delete etc/modulefiles/ $INSTALLROOT/etc/modulefiles
 
 nicadist-postbuild-hook
-
-exit(432)

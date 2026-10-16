@@ -1,6 +1,6 @@
 default:
   - &MPDROOT_TAG v26.06.11
-package: defaults-nica
+package: defaults-global
 version: v2027.01
 env:
   CHECK_CONFIG_DIR: "${ALIBUILD_CONFIG_DIR:?\e[31mERROR: ALIBUILD_CONFIG_DIR is not set. Make sure you have at least aliBuild v1.17.19. Aborting!\e[0m}"

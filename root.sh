@@ -5,6 +5,7 @@ source: https://github.com/root-project/root.git
 requires:
   - abseil-cpp
   - bzip2
+  - curl
   - FFTW
   - FTGL
   - FreeType
