@@ -7,10 +7,11 @@ cd $HOME/nica
 git clone https://github.com/NICAdist/nicadist.git nicadist
 ----
 
-One time create toolbox
+One time create toolbox and export path to where data is built
 [source,bash]
 ----
 toolbox create -c a9-nica-dev -i registry.gitlab.com/ndmspc/user/al9:alibuild-dev
+export ALIBUILD_WORK_DIR="$HOME/nica/sw/202701"
 ----
 
 == Usage
